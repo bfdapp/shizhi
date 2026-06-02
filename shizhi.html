@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BSC专业批量交易工具</title>
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    <style>
+        * { box-sizing: border-box; margin:0; padding:0; }
+        body { background: #f5f7fa; font-family: sans-serif; color: #333; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; background: #fff; border-radius: 12px; padding: 28px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+        .title { text-align: center; font-size: 24px; font-weight: 600; margin-bottom: 24px; }
+        .title span { color: #52c41a; }
+        .status-bar { display: flex; gap: 20px; background: #f6ffed; border:1px solid #b7eb8f; padding:12px 16px; border-radius:8px; margin-bottom:20px; font-size:14px; }
+        .status-green { color:#52c41a; }
+        .status-red { color:#ff4d4f; }
+        .status-gray { color:#8c8c8c; }
+        .alert { background:#fff2f0; border:1px solid #ffccc7; border-radius:8px; padding:12px 16px; margin-bottom:20px; font-size:13px; color:#cf1322; }
+        .card { background:#fafafa; border-radius:8px; padding:20px; margin-bottom:20px; border:1px solid #f0f0f0; }
+        .card-title { font-size:14px; font-weight:600; margin-bottom:16px; display:flex; align-items:center; gap:6px; }
+        .token-swap-row { display:flex; align-items:center; gap:16px; }
+        .token-box { flex:1; background:#fff; border:1px solid #d9d9d9; border-radius:12px; padding:16px; }
+        .token-box-label { font-size:14px; color:#8c8c8c; margin-bottom:8px; }
+        .token-selector { display:flex; align-items:center; gap:12px; cursor:pointer; padding:8px; border-radius:8px; }
+        .token-selector:hover { background:#f6ffed; }
+        .token-icon { width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:18px; }
+        .token-icon.bnb { background:#f3ba2f; }
+        .token-icon.usdt { background:#26a17b; }
+        .token-icon.usdc { background:#2775ca; }
+        .token-icon.busd { background:#f0b90b; }
+        .token-icon.cake { background:#d1884f; }
+        .token-icon.custom { background:#d9d9d9; }
+        .token-symbol { font-size:16px; font-weight:600; }
+        .token-address { font-size:12px; color:#8c8c8c; font-family:monospace; }
+        .swap-arrow { width:40px; height:40px; background:#52c41a; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#fff; font-size:18px; cursor:pointer; }
+        .swap-arrow:hover { background:#389e0d; transform:rotate(180deg); }
+        .chain-info { display:flex; align-items:center; gap:20px; margin-top:12px; padding-top:12px; border-top:1px solid #f0f0f0; font-size:13px; color:#8c8c8c; }
+        .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:24px; }
+        .grid-3 { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+        .grid-2-col { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+        label { font-size:13px; color:#595959; margin-bottom:8px; display:block; font-weight:500; }
+        input,select { width:100%; background:#fff; border:1px solid #d9d9d9; border-radius:6px; padding:10px 12px; font-size:14px; outline:none; }
+        input:focus { border-color:#52c41a; box-shadow:0 0 0 2px rgba(82,196,26,0.1); }
+        .btn-group { display:flex; gap:0; margin-bottom:12px; }
+        .btn-tab { flex:1; padding:10px 16px; background:#fff; border:1px solid #d9d9d9; border-right:none; font-size:13px; color:#595959; cursor:pointer; }
+        .btn-tab:first-child { border-radius:6px 0 0 6px; }
+        .btn-tab:last-child { border-radius:0 6px 6px 0; border-right:1px solid #d9d9d9; }
+        .btn-tab.active { background:#52c41a; color:#fff; border-color:#52c41a; }
+        .btn-small-group { display:flex; gap:8px; flex-wrap:wrap; }
+        .btn-small { padding:6px 14px; background:#fff; border:1px solid #d9d9d9; border-radius:6px; font-size:13px; color:#595959; cursor:pointer; }
+        .btn-small.active { background:#52c41a; color:#fff; border-color:#52c41a; }
+        .input-with-unit { display:flex; align-items:center; }
+        .input-with-unit input { border-radius:6px 0 0 6px; border-right:none; }
+        .unit { padding:10px 12px; background:#fafafa; border:1px solid #d9d9d9; border-radius:0 6px 6px 0; font-size:13px; color:#8c8c8c; }
+        .stepper { display:flex; align-items:center; }
+        .stepper button { width:36px; height:36px; background:#fafafa; border:1px solid #d9d9d9; font-size:18px; cursor:pointer; }
+        .stepper button:first-child { border-radius:6px 0 0 6px; }
+        .stepper button:last-child { border-radius:0 6px 6px 0; }
+        .stepper input { width:60px; text-align:center; border-left:none; border-right:none; }
+        .switch-container { display:flex; align-items:center; gap:12px; }
+        .switch { position:relative; width:44px; height:22px; background:#d9d9d9; border-radius:11px; cursor:pointer; transition:0.3s; }
+        .switch.on { background:#52c41a; }
+        .switch::after { content:''; position:absolute; width:18px; height:18px; background:#fff; border-radius:50%; top:2px; left:2px; transition:0.3s; }
+        .switch.on::after { left:24px; }
+        .btn { padding:10px 20px; border-radius:6px; font-size:14px; border:none; cursor:pointer; }
+        .btn-primary { background:#52c41a; color:#fff; }
+        .btn-danger { background:#ff4d4f; color:#fff; }
+        .btn-default { background:#fff; color:#595959; border:1px solid #d9d9d9; }
+        .btn:disabled { opacity:0.6; cursor:not-allowed; }
+        table { width:100%; border-collapse:collapse; background:#fff; border-radius:8px; overflow:hidden; margin-bottom:20px; border:1px solid #f0f0f0; }
+        th { background:#fafafa; padding:12px; text-align:left; font-size:13px; border-bottom:1px solid #f0f0f0; }
+        td { padding:12px; border-bottom:1px solid #f0f0f0; font-size:13px; color:#595959; }
+        .log-container { background:#fafafa; border-radius:8px; padding:16px; height:200px; overflow-y:auto; font-family:monospace; font-size:12px; border:1px solid #f0f0f0; }
+        .stat-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:20px; }
+        .stat-item { background:#fafafa; padding:16px; border-radius:8px; text-align:center; border:1px solid #f0f0f0; }
+        .stat-value { font-size:24px; font-weight:600; color:#52c41a; }
+        .progress-bar { height:4px; background:#f0f0f0; border-radius:2px; margin-bottom:20px; overflow:hidden; }
+        .progress-fill { height:100%; background:linear-gradient(90deg,#52c41a,#95de64); width:0%; transition:0.3s; }
+        .modal { display:none; position:fixed; top:0;left:0;width:100%;height:100%; background:rgba(0,0,0,0.5); z-index:999; justify-content:center; align-items:center; }
+        .modal.show { display:flex; }
+        .modal-box { background:#fff; width:500px; max-width:90%; border-radius:12px; padding:24px; }
+        .modal-title { font-size:16px; font-weight:600; margin-bottom:16px; }
+        textarea { width:100%; border:1px solid #d9d9d9; border-radius:6px; padding:12px; font-family:monospace; font-size:13px; resize:none; }
+        .badge-new { display:inline-block; background:#ff4d4f; color:#fff; font-size:10px; padding:2px 6px; border-radius:4px; margin-left:6px; }
+        .help-icon { display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px; background:#d9d9d9; color:#fff; border-radius:50%; font-size:11px; cursor:help; margin-left:4px; }
+        .addr { font-family:monospace; color:#8c8c8c; }
+        .log-time { color:#8c8c8c; }
+        .log-info { color:#1890ff; }
+        .log-success { color:#52c41a; }
+        .log-warning { color:#faad14; }
+        .log-error { color:#ff4d4f; }
+        .delay-control { display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+        .stepper-inline { display:flex; align-items:center; border:1px solid #d9d9d9; border-radius:6px; overflow:hidden; }
+        .stepper-inline button { width:36px; height:36px; background:#fff; border:none; font-size:18px; cursor:pointer; }
+        .stepper-inline button:hover { background:#f0f0f0; }
+        .stepper-inline input { width:60px; text-align:center; border:none; border-left:1px solid #d9d9d9; border-right:1px solid #d9d9d9; }
+        .switch-inline { display:flex; align-items:center; gap:8px; }
+        .delay-range { display:flex; gap:8px; align-items:center; margin-top:8px; }
+        .delay-range input { width:70px; }
+        @media (max-width:768px){.grid-2,.grid-3{grid-template-columns:1fr;}.token-swap-row{flex-direction:column;}.swap-arrow{transform:rotate(90deg);}}
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="title">🔹 BSC 专业级批量交易工具 <span>V7优化版</span></div>
+    <div class="alert">⚠️ 安全警告：本工具在浏览器端处理私钥，请在可信环境使用，用完清除私钥</div>
+    <div class="status-bar">
+        <span>运行状态：<b id="statusText" class="status-gray">未启动</b></span>
+        <span>已选钱包：<b id="walletCount">0</b></span>
+        <span>当前轮次：<b id="roundText">0 / 0</b></span>
+    </div>
+    <div class="stat-grid">
+        <div class="stat-item"><div class="stat-value" id="statSuccess">0</div><div class="stat-label">成功</div></div>
+        <div class="stat-item"><div class="stat-value" style="color:#ff4d4f" id="statFail">0</div><div class="stat-label">失败</div></div>
+        <div class="stat-item"><div class="stat-value" style="color:#faad14" id="statSkip">0</div><div class="stat-label">跳过</div></div>
+        <div class="stat-item"><div class="stat-value" id="statEarn">0</div><div class="stat-label">预估收益(BNB)</div></div>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+
+    <div class="card token-swap-section">
+        <div class="token-swap-row">
+            <div class="token-box">
+                <div class="token-box-label">从 🔗</div>
+                <div class="token-selector" onclick="openTokenModal('from')">
+                    <div class="token-icon bnb" id="fromTokenIcon">🟡</div>
+                    <div class="token-info">
+                        <div class="token-symbol" id="fromTokenSymbol">BNB</div>
+                        <div class="token-address" id="fromTokenAddress">-</div>
+                    </div>
+                    <span>▼</span>
+                </div>
+            </div>
+            <div class="swap-arrow" onclick="swapTokens()">→</div>
+            <div class="token-box">
+                <div class="token-box-label">到 🔗</div>
+                <div class="token-selector" onclick="openTokenModal('to')">
+                    <div class="token-icon usdt" id="toTokenIcon">💵</div>
+                    <div class="token-info">
+                        <div class="token-symbol" id="toTokenSymbol">USDT</div>
+                        <div class="token-address" id="toTokenAddress">0x55d3...7955</div>
+                    </div>
+                    <span>▼</span>
+                </div>
+            </div>
+        </div>
+        <div class="chain-info">
+            <span class="chain-info-item"><span class="label">公链</span><span class="value">BSC</span></span>
+            <span class="chain-info-item"><span class="label">ChainId:</span><span class="value">56</span></span>
+            <span class="chain-info-item"><span class="label">RPC</span><span class="value" id="rpcLatency">-- MS</span><span class="refresh" onclick="checkRPCLatency()">🔄</span></span>
+            <span class="more" onclick="showRPCOptions()">More RPC</span>
+        </div>
+    </div>
+
+    <div class="card" id="rpcConfig" style="display:none;">
+        <div class="card-title">⚙️ RPC 配置</div>
+        <input id="rpc" value="https://bsc-dataseed.binance.org" placeholder="自定义RPC节点">
+        <div style="margin-top:12px; display:flex; gap:10px;">
+            <button class="btn btn-default" onclick="setRPC('https://bsc-dataseed.binance.org')">官方节点</button>
+            <button class="btn btn-default" onclick="setRPC('https://bsc-dataseed1.defibit.io')">Defibit</button>
+            <button class="btn btn-default" onclick="setRPC('https://bsc-dataseed1.ninicoin.io')">NiniCoin</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="grid-2">
+            <div>
+                <label id="swapLabel">Swap数量(BNB)</label>
+                <div class="btn-group" id="swapModeGroup">
+                    <button class="btn-tab" data-mode="all">全部金额</button>
+                    <button class="btn-tab active" data-mode="fixed">固定金额</button>
+                    <button class="btn-tab" data-mode="percent">区间百分比</button>
+                </div>
+            </div>
+            <div>
+                <label id="amountLabel">固定金额(BNB)</label>
+                <div class="input-with-unit">
+                    <input type="number" id="fixedAmount" value="0" step="0.001">
+                    <span class="unit" id="unitLabel">BNB</span>
+                </div>
+                <div id="percentRangeInputs" style="display:none; margin-top:8px;">
+                    <div class="grid-2-col">
+                        <div>
+                            <label style="font-size:11px; margin-bottom:4px;">最小百分比(%)</label>
+                            <input type="number" id="minPercent" value="10" step="1">
+                        </div>
+                        <div>
+                            <label style="font-size:11px; margin-bottom:4px;">最大百分比(%)</label>
+                            <input type="number" id="maxPercent" value="90" step="1">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="delay-control">
+            <div>
+                <label>任务执行间隔(秒)</label>
+                <div class="stepper-inline">
+                    <button onclick="adjustInterval(-1)">−</button>
+                    <input type="number" id="taskInterval" value="1" min="1">
+                    <button onclick="adjustInterval(1)">+</button>
+                </div>
+            </div>
+            <div class="switch-inline">
+                <div class="switch" id="randomDelaySwitch" onclick="toggleSwitch('randomDelaySwitch')"></div>
+                <span>启用随机延迟</span>
+            </div>
+            <div>
+                <label>线程</label>
+<input type="number" id="threadCount" value="1" min="1" max="10">            </div>
+        </div>
+        <div class="delay-range">
+            <span>延迟区间：</span>
+            <input type="number" id="delayMin" value="1" min="0" placeholder="最小秒">
+            <span>~</span>
+            <input type="number" id="delayMax" value="4" min="0" placeholder="最大秒">
+            <span>秒</span>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="grid-2">
+            <div>
+                <label>滑点设置</label>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <div class="btn-small-group" id="slippageGroup">
+                        <button class="btn-small" data-value="auto">自动</button>
+                        <button class="btn-small" data-value="0.5">0.5%</button>
+                        <button class="btn-small active" data-value="1.0">1.0%</button>
+                        <button class="btn-small" data-value="3.0">3.0%</button>
+                    </div>
+                    <div class="input-with-unit" style="width:100px;">
+                        <input type="number" id="customSlippage" value="1.0" step="0.1">
+                        <span class="unit">%</span>
+                    </div>
+                </div>
+            </div>
+            <div>
+                <label>钱包执行顺序</label>
+                <div class="btn-group" id="orderGroup">
+                    <button class="btn-tab active" data-order="sequential">顺序执行</button>
+                    <button class="btn-tab" data-order="random">随机执行</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="grid-3">
+            <div>
+                <label>停止方式 <span class="badge-new">New</span></label>
+                <div class="btn-group" id="stopModeGroup">
+                    <button class="btn-tab active" data-mode="rounds">运行次数</button>
+                    
+                </div>
+            </div>
+            <div>
+                <label>循环执行轮次 <span class="badge-new">New</span> <span class="help-icon" title="设置自动运行轮次">?</span></label>
+                <div class="stepper">
+                    <button onclick="adjustRounds(-1)">−</button>
+                    <input type="number" id="maxRounds" value="1" min="1">
+                    <button onclick="adjustRounds(+1)">+</button>
+                </div>
+            </div>
+            <div>
+                <label>自动卖出 <span class="badge-new">New</span> <span class="help-icon" title="买入后自动卖出">?</span></label>
+                <div class="switch-container">
+                    <div class="switch on" id="autoSellSwitch" onclick="toggleSwitch('autoSellSwitch')"></div>
+                    <span id="autoSellText">开启</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-title">⛽ Gas费预留设置</div>
+        <div class="grid-2">
+            <div>
+                <label>预留BNB用于Gas费</label>
+                <div class="input-with-unit">
+                    <input type="number" id="gasReserve" value="0.005" step="0.001">
+                    <span class="unit">BNB</span>
+                </div>
+                <div style="font-size:11px; color:#8c8c8c; margin-top:4px;">建议0.005 BNB</div>
+            </div>
+            <div>
+                <label>Gas Price (Gwei)</label>
+                <div class="input-with-unit">
+                    <input type="number" id="gasPriceGwei" value="0.1" step="0.1">
+                    <span class="unit">Gwei</span>
+                </div>
+                <div style="font-size:11px; color:#8c8c8c; margin-top:4px;">BSC建议5-10 Gwei</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-title">🔑 钱包管理</div>
+        <div style="display:flex; gap:10px; margin-bottom:16px;">
+            <button class="btn btn-primary" onclick="openModal()">导入私钥</button>
+<button class="btn btn-default" onclick="walletManager.refreshBalances()">刷新余额</button>            <button class="btn btn-default" onclick="walletManager.exportKeys()">导出私钥</button>
+<button class="btn btn-danger" onclick="walletManager.clear()">清除私钥</button>        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th width="40"><input type="checkbox" id="selectAll" checked onclick="walletManager.selectAll()"></th>
+                    <th width="40">#</th>
+                    <th>钱包地址</th>
+                    <th>BNB余额</th>
+                    <th>代币余额</th>
+                    <th>状态</th>
+                    <th width="60">操作</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+        </table>
+    </div>
+
+    <div style="display:flex; gap:12px; margin-bottom:20px;">
+        <button class="btn btn-primary" style="flex:1; padding:14px;" onclick="trader.start()" id="btnStart">▶️ 启动全自动交易</button>
+        <button class="btn btn-danger" style="flex:1; padding:14px;" onclick="trader.stop()" id="btnStop" disabled>⏹️ 停止交易</button>
+    </div>
+
+    <div class="card">
+        <div class="card-title">📋 运行日志</div>
+        <div class="log-container" id="logContainer"></div>
+    </div>
+</div>
+
+<div class="modal" id="modal">
+    <div class="modal-box">
+        <div class="modal-title">导入私钥</div>
+        <textarea id="privateKeys" rows="8" placeholder="每行一个私钥"></textarea>
+        <div style="display:flex; gap:10px; margin-top:16px; justify-content:flex-end;">
+            <button class="btn btn-default" onclick="closeModal()">取消</button>
+            <button class="btn btn-primary" onclick="importKeys()">确认导入</button>
+        </div>
+    </div>
+</div>
+<div class="modal" id="exportModal">
+    <div class="modal-box">
+        <div class="modal-title">导出私钥</div>
+        <textarea id="exportKeys" readonly rows="8"></textarea>
+        <div style="display:flex; gap:10px; margin-top:16px; justify-content:flex-end;">
+            <button class="btn btn-default" onclick="closeExportModal()">关闭</button>
+            <button class="btn btn-primary" onclick="copyExportKeys()">复制全部</button>
+        </div>
+    </div>
+</div>
+<div class="modal" id="tokenModal">
+    <div class="modal-box">
+        <div class="modal-title">选择代币</div>
+        <input class="search-box" id="tokenSearch" placeholder="搜索代币/粘贴合约地址" oninput="searchToken()">
+        <div class="token-list" id="tokenList"></div>
+        <div id="tokenDetail" class="token-detail" style="display:none; margin:10px 0; padding:10px; background:#f6ffed; border:1px solid #b7eb8f; border-radius:8px;"></div>
+        <div style="display:flex; gap:10px; margin-top:16px; justify-content:flex-end;">
+            <button class="btn btn-default" onclick="closeTokenModal()">取消</button>
+            <button class="btn btn-primary" onclick="confirmTokenSelection()" id="confirmTokenBtn" disabled>选择此代币</button>
+        </div>
+    </div>
+</div>
+
+<script>
+const CONFIG = {
+    mainnet:{rpc:"https://bsc-dataseed.binance.org",router:"0x10ED43C718714eb63d5aA57B78B54704E256024E",wbnb:"0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",scan:"https://bscscan.com",chainId:56}
+};
+const COMMON_TOKENS = [
+    {symbol:'BNB',name:'BNB',address:'',icon:'🟡',type:'bnb',isNative:true},
+    {symbol:'WBNB',name:'Wrapped BNB',address:'0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c',icon:'🟡',type:'bnb'},
+    {symbol:'USDT',name:'Tether USD',address:'0x55d398326f99059fF775485246999027B3197955',icon:'💵',type:'usdt'},
+    {symbol:'BUSD',name:'Binance USD',address:'0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56',icon:'💵',type:'busd'},
+    {symbol:'USDC',name:'USD Coin',address:'0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d',icon:'💵',type:'usdc'},
+    {symbol:'CAKE',name:'PancakeSwap Token',address:'0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82',icon:'🥞',type:'cake'},
+    {symbol:'ETH',name:'Ethereum',address:'0x2170Ed0880ac9A755fd29B2688956BD959F933F8',icon:'💎',type:'custom'},
+    {symbol:'BTCB',name:'Bitcoin',address:'0x7130d2A12B9BCbFAe4f2634d864A1E6C597cD25',icon:'₿',type:'custom'}
+];
+const ROUTER_ABI = ["function getAmountsOut(uint amountIn, address[] calldata path) external view returns (uint[] memory amounts)","function swapExactETHForTokensSupportingFeeOnTransferTokens(uint amountOutMin, address[] calldata path, address to, uint deadline) external payable","function swapExactTokensForETHSupportingFeeOnTransferTokens(uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline) external","function swapExactTokensForTokensSupportingFeeOnTransferTokens(uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline) external"];
+const ERC20_ABI = ["function balanceOf(address account) external view returns (uint256)","function symbol() external view returns (string)","function name() external view returns (string)","function decimals() external view returns (uint8)","function approve(address spender, uint256 amount) external returns (bool)","function allowance(address owner, address spender) external view returns (uint256)"];
+
+const Utils = {
+    $:id=>document.getElementById(id),sleep:ms=>new Promise(r=>setTimeout(r,ms)),
+    randomFloat:(min,max)=>Math.random()*(max-min)+min,
+    shortAddr:addr=>addr?`${addr.slice(0,6)}...${addr.slice(-4)}`:'-',
+    formatEther:(val,dec=4)=>parseFloat(ethers.utils.formatEther(val)).toFixed(dec),
+    now:()=>Math.floor(Date.now()/1000),
+    log(msg,type='info'){
+        let c=this.$('logContainer');let t=new Date().toLocaleTimeString();
+        c.innerHTML+=`<div class="log-entry"><span class="log-time">[${t}]</span> <span class="log-${type}">${msg}</span></div>`;
+        c.scrollTop=c.scrollHeight;
+    },
+    setStatus(text,cls='status-gray'){let e=this.$('statusText');e.textContent=text;e.className=cls;},
+    updateProgress(p){this.$('progressFill').style.width=`${p}%`;}
+};
+
+const TokenState = {
+    from:{symbol:'BNB',address:'',icon:'🟡',type:'bnb',isNative:true},
+    to:{symbol:'USDT',address:'0x55d398326f99059fF775485246999027B3197955',icon:'💵',type:'usdt'},
+    updateUI(){
+        Utils.$('fromTokenSymbol').textContent=this.from.symbol;
+        Utils.$('fromTokenAddress').textContent=this.from.address?Utils.shortAddr(this.from.address):'-';
+        Utils.$('fromTokenIcon').className=`token-icon ${this.from.type}`;Utils.$('fromTokenIcon').textContent=this.from.icon;
+        Utils.$('toTokenSymbol').textContent=this.to.symbol;
+        Utils.$('toTokenAddress').textContent=Utils.shortAddr(this.to.address);
+        Utils.$('toTokenIcon').className=`token-icon ${this.to.type}`;Utils.$('toTokenIcon').textContent=this.to.icon;
+        this.refreshLabel();
+    },
+    refreshLabel(){
+        let sell=!this.from.isNative;
+        Utils.$('swapLabel').innerText=sell?`Swap数量(${this.from.symbol})`:`Swap数量(BNB)`;
+        Utils.$('amountLabel').innerText=sell?`固定金额(${this.from.symbol})`:`固定金额(BNB)`;
+        Utils.$('unitLabel').innerText=sell?this.from.symbol:'BNB';
+    },
+swap() {
+    [this.from, this.to] = [this.to, this.from];
+    this.updateUI();
+    walletManager.refreshBalances(); // 切换后立刻刷新余额
+}
+};
+
+const State = {
+    swapMode:'fixed',slippage:'1.0',orderMode:'sequential',stopMode:'rounds',autoSell:true,randomDelay:false,
+    init(){
+        this.bindTabs('swapModeGroup','mode',v=>{
+            this.swapMode=v;
+            Utils.$('percentRangeInputs').style.display=v==='percent'?'block':'none';
+        });
+        this.bindTabs('slippageGroup','value',v=>{this.slippage=v;if(v!=='auto')Utils.$('customSlippage').value=v;});
+        this.bindTabs('orderGroup','order',v=>this.orderMode=v);
+    },
+    bindTabs(gid,key,cb){
+        let g=Utils.$(gid);
+        g.addEventListener('click',e=>{
+            if(!e.target.dataset[key])return;
+            g.querySelectorAll('.btn-tab,.btn-small').forEach(b=>b.classList.remove('active'));
+            e.target.classList.add('active');cb(e.target.dataset[key]);
+        });
+    }
+};
+
+class WalletManager{
+    constructor(){this.wallets=[];this.provider=null;this.selected=new Set();this.gasPrice=null;}
+    initProvider(){let rpc=Utils.$('rpc').value||CONFIG.mainnet.rpc;this.provider=new ethers.providers.JsonRpcProvider(rpc);this.updateGasPrice();checkRPCLatency();}
+    async updateGasPrice(){
+    try{
+        // 默认兜底改成0.1
+        let c=parseFloat(Utils.$('gasPriceGwei').value) || 0.1;
+        this.gasPrice=c>0?ethers.utils.parseUnits(c.toString(),'gwei'):(await this.provider.getFeeData()).gasPrice;
+    }catch{}
+}
+    async importKeys(keys){
+        this.initProvider();
+        let list=keys.trim().split('\n').map(k=>k.trim()).filter(Boolean);
+        for(let k of list){
+            try{
+                let w=new ethers.Wallet(k.startsWith('0x')?k:'0x'+k,this.provider);
+                if(!this.wallets.some(x=>x.addr===w.address))this.wallets.push({key:w.privateKey,addr:w.address,bnb:'0',token:'0',status:'ready'});
+            }catch{Utils.log('私钥格式错误','error');}
+        }
+        await this.refreshBalances();this.render();
+    }
+    async refreshBalances() {
+    if (!this.provider || !this.wallets.length) return;
+
+    // 关键：卖出时查 from（代币），买入时查 to（代币）
+    let tokenContract = TokenState.from.isNative 
+        ? TokenState.to.address 
+        : TokenState.from.address;
+
+    let tasks = this.wallets.map(async w => {
+        try {
+            // 查 BNB 余额
+            let bnbBal = await this.provider.getBalance(w.addr);
+            w.bnb = Utils.formatEther(bnbBal);
+
+            // 查代币余额（修复：用 tokenContract，而不是固定 to.address）
+            let tokenBal = ethers.constants.Zero;
+            if (tokenContract) {
+                tokenBal = await this.getTokenBal(w.addr, tokenContract);
+            }
+            w.token = Utils.formatEther(tokenBal);
+
+            let res = ethers.utils.parseEther(Utils.$('gasReserve').value || '0.005');
+            w.status = bnbBal.gt(res) ? 'ready' : 'low_bnb';
+        } catch {
+            w.status = 'error';
+        }
+    });
+
+    await Promise.all(tasks);
+    this.render();
+}
+    async getTokenBal(addr, tok) {
+    try {
+        // 加判断：必须是合法合约地址
+        if (!ethers.utils.isAddress(tok) || tok === ethers.constants.AddressZero) {
+            return ethers.constants.Zero;
+        }
+        let c = new ethers.Contract(tok, ERC20_ABI, this.provider);
+        return await c.balanceOf(addr);
+    } catch (e) {
+        Utils.log(`查询代币余额失败: ${e.message.slice(0,30)}`, 'error');
+        return ethers.constants.Zero;
+    }
+}
+    render(){
+        let tb=Utils.$('tableBody');let sym=TokenState.to.symbol;
+        if(!this.wallets.length){tb.innerHTML='<tr><td colspan="7" align="center" style="color:#8c8c8c">请导入私钥</td></tr>';return;}
+        tb.innerHTML=this.wallets.map((w,i)=>`
+        <tr>
+            <td><input type="checkbox" class="cb" ${this.selected.has(i)?'checked':''} onchange="walletManager.toggle(${i})"></td>
+            <td>${i+1}</td>
+            <td><span class="addr">${Utils.shortAddr(w.addr)}</span></td>
+            <td>${w.bnb}</td>
+            <td>${w.token} ${sym}</td>
+            <td style="color:${w.status==='ready'?'#52c41a':'#ff4d4f'}">${w.status==='ready'?'就绪':'余额不足'}</td>
+            <td><button class="btn btn-danger" onclick="walletManager.remove(${i})" style="padding:3px 8px;font-size:12px">删</button></td>
+        </tr>`).join('');
+        Utils.$('walletCount').textContent=this.selected.size;
+    }
+    toggle(i){this.selected.has(i)?this.selected.delete(i):this.selected.add(i);this.render();}
+    selectAll(){let ck=Utils.$('selectAll').checked;this.wallets.forEach((_,i)=>ck?this.selected.add(i):this.selected.delete(i));this.render();}
+    remove(i){this.wallets.splice(i,1);this.selected.clear();this.render();}
+    clear(){
+    this.wallets=[];
+    this.selected.clear();
+    this.provider = null;
+    this.render();
+    Utils.log('已清空私钥','warning');
+}
+    exportKeys(){if(!this.wallets.length)return alert('无钱包');Utils.$('exportKeys').value=this.wallets.map(w=>w.key).join('\n');Utils.$('exportModal').classList.add('show');}
+    getSelected(){let arr=Array.from(this.selected).map(i=>this.wallets[i]).filter(Boolean);return State.orderMode==='random'?arr.sort(()=>Math.random()-0.5):arr;}
+    getSwapAmount(balance){
+        let res=ethers.utils.parseEther(Utils.$('gasReserve').value||'0.005');
+        let avail=balance.sub(res);if(avail.lte(0))return ethers.constants.Zero;
+        let m=State.swapMode;
+        if(m==='all')return avail;
+        if(m==='fixed'){let v=ethers.utils.parseEther(Utils.$('fixedAmount').value);return v.gt(avail)?avail:v;}
+        if(m==='percent'){
+            let minP=parseInt(Utils.$('minPercent').value)||10;
+            let maxP=parseInt(Utils.$('maxPercent').value)||90;
+            let rnd=Math.floor(Math.random()*(maxP-minP+1))+minP;
+            return avail.mul(rnd).div(100);
+        }
+        return ethers.utils.parseEther(Utils.$('fixedAmount').value);
+    }
+    async refresh(){this.initProvider();await this.refreshBalances();}
+}
+
+class Trader{
+    constructor(){this.running=false;this.round=0;this.stats={success:0,fail:0,skip:0};this.timer=null;this.initPrice=null;}
+    async start(){
+        if(this.running)return;
+        let list=walletManager.getSelected();if(!list.length)return alert('请选择钱包');
+        this.running=true;this.round=0;this.stats={success:0,fail:0,skip:0};
+        Utils.$('btnStart').disabled=true;Utils.$('btnStop').disabled=false;
+        Utils.setStatus('运行中','status-green');
+       await this.runRound();
+        this.timer=setInterval(()=>this.runRound(),parseInt(Utils.$('taskInterval').value)*1000);
+    }
+            stop(){
+        this.running=false;clearInterval(this.timer);
+        Utils.$('btnStart').disabled=false;Utils.$('btnStop').disabled=true;
+        Utils.setStatus('已停止','status-red');
+    }
+    async runRound(){
+    if(!this.running)return;
+    this.round++;let max=parseInt(Utils.$('maxRounds').value);
+    Utils.$('roundText').textContent=`${this.round}/${max}`;
+    await walletManager.updateGasPrice();
+
+    // 获取线程数
+    const threadCount = parseInt(Utils.$('threadCount').value) || 1;
+    let list = walletManager.getSelected();
+    let minSec = parseInt(Utils.$('delayMin').value) || 1;
+    let maxSec = parseInt(Utils.$('delayMax').value) || 4;
+
+    // 多线程分片
+    const chunkSize = Math.ceil(list.length / threadCount);
+    const chunks = [];
+    for (let i = 0; i < list.length; i += chunkSize) {
+        chunks.push(list.slice(i, i + chunkSize));
+    }
+
+    // 并发执行
+    await Promise.all(chunks.map(async (chunk) => {
+        for (let w of chunk) {
+            if(!this.running) break;
+            await this.trade(w);
+            if(State.randomDelay){
+                let delayMs = Math.floor(Utils.randomFloat(minSec, maxSec) * 1000);
+                await Utils.sleep(delayMs);
+            }
+        }
+    }));
+
+    this.updateUI();
+    await walletManager.refreshBalances();
+    if(this.round>=max&&State.stopMode==='rounds')this.stop();
+}
+    async trade(w){
+        let net=CONFIG.mainnet;let wall=new ethers.Wallet(w.key,walletManager.provider);
+        try{
+            if(TokenState.from.isNative){
+                let bal=await walletManager.provider.getBalance(w.addr);
+                let amt=walletManager.getSwapAmount(bal);
+                if(amt.isZero()){this.stats.skip++;Utils.log(`[${Utils.shortAddr(w.addr)}] 余额不足`,'warning');return;}
+                let router=new ethers.Contract(net.router,ROUTER_ABI,wall);
+                let slip=parseFloat(Utils.$('customSlippage').value);
+                let path=[net.wbnb,TokenState.to.address];
+                let out=await router.getAmountsOut(amt,path);
+                let minOut=out[out.length-1].mul(100-slip).div(100);
+                Utils.log(`[${Utils.shortAddr(w.addr)}] 买入中`,'info');
+                let tx=await router.swapExactETHForTokensSupportingFeeOnTransferTokens(minOut,path,w.addr,Utils.now()+600,{value:amt,gasPrice:walletManager.gasPrice});
+                await tx.wait();
+                Utils.log(`[${Utils.shortAddr(w.addr)}] 买入成功`,'success');
+                this.stats.success++;
+            }else{
+                let tokAddr=TokenState.from.address;
+                let token=new ethers.Contract(tokAddr,ERC20_ABI,wall);
+                let bal=await token.balanceOf(w.addr);
+                if(bal.isZero()){this.stats.skip++;Utils.log(`[${Utils.shortAddr(w.addr)}] 无代币余额`,'warning');return;}
+                let allow=await token.allowance(w.addr,net.router);
+                if(allow.lt(bal)){
+                    Utils.log(`[${Utils.shortAddr(w.addr)}] 授权中`,'info');
+                    await token.approve(net.router,ethers.constants.MaxUint256,{gasPrice:walletManager.gasPrice});
+                    await Utils.sleep(2000);
+                }
+                let router=new ethers.Contract(net.router,ROUTER_ABI,wall);
+                let slip=parseFloat(Utils.$('customSlippage').value);
+                let toNative=TokenState.to.isNative;
+                let path=toNative?[tokAddr,net.wbnb]:[tokAddr,net.wbnb,TokenState.to.address];
+                let out=await router.getAmountsOut(bal,path);
+                let minOut=out[out.length-1].mul(100-slip).div(100);
+                Utils.log(`[${Utils.shortAddr(w.addr)}] 卖出中`,'info');
+                let tx;
+                if(toNative){
+                    tx=await router.swapExactTokensForETHSupportingFeeOnTransferTokens(bal,minOut,path,w.addr,Utils.now()+600,{gasPrice:walletManager.gasPrice});
+                }else{
+                    tx=await router.swapExactTokensForTokensSupportingFeeOnTransferTokens(bal,minOut,path,w.addr,Utils.now()+600,{gasPrice:walletManager.gasPrice});
+                }
+                await tx.wait();
+                Utils.log(`[${Utils.shortAddr(w.addr)}] 卖出成功`,'success');
+                this.stats.success++;
+            }
+        }catch(e){
+            this.stats.fail++;
+            Utils.log(`[${Utils.shortAddr(w.addr)}] 失败：${e.message.slice(0,40)}`,'error');
+        }
+    }
+    updateUI(){
+        Utils.$('statSuccess').textContent=this.stats.success;
+        Utils.$('statFail').textContent=this.stats.fail;
+        Utils.$('statSkip').textContent=this.stats.skip;
+        let max=parseInt(Utils.$('maxRounds').value);
+        Utils.updateProgress((this.round/max)*100);
+    }
+}
+
+const walletManager=new WalletManager();
+const trader=new Trader();
+
+function toggleSwitch(id){
+    let el=Utils.$(id);el.classList.toggle('on');
+    let on=el.classList.contains('on');
+    if(id==='autoSellSwitch'){State.autoSell=on;Utils.$('autoSellText').textContent=on?'开启':'关闭';}
+    if(id==='randomDelaySwitch'){State.randomDelay=on;}
+}
+function adjustRounds(d){let i=Utils.$('maxRounds');let v=parseInt(i.value)+d;i.value=Math.max(1,v);}
+function adjustInterval(d){let i=Utils.$('taskInterval');let v=parseInt(i.value)+d;i.value=Math.max(1,v);}
+function swapTokens(){TokenState.swap();}
+let selecting=null,selectedToken=null;
+function openTokenModal(side){selecting=side;selectedToken=null;Utils.$('tokenModal').classList.add('show');Utils.$('tokenSearch').value='';Utils.$('tokenDetail').style.display='none';Utils.$('confirmTokenBtn').disabled=true;renderList(COMMON_TOKENS);}
+function closeTokenModal(){Utils.$('tokenModal').classList.remove('show');}
+function renderList(tokens){Utils.$('tokenList').innerHTML=tokens.map(t=>`<div class="token-item" onclick="pickToken('${t.address||''}')"><div class="token-icon ${t.type}">${t.icon}</div><div class="token-info"><div class="token-symbol">${t.symbol}</div><div class="token-address">${t.name}</div></div></div>`).join('');}
+function searchToken(){
+    let q=Utils.$('tokenSearch').value.trim().toLowerCase();
+    if(!q){renderList(COMMON_TOKENS);return;}
+    if(ethers.utils.isAddress(q)){
+        (async()=>{
+            try{
+                let c=new ethers.Contract(q,ERC20_ABI,walletManager.provider);
+                let [s,n]=await Promise.all([c.symbol(),c.name()]);
+                selectedToken={symbol:s,name:n,address:q,icon:'🪙',type:'custom'};
+                Utils.$('tokenDetail').innerHTML=`
+                <div><span>合约地址：</span>${q}</div>
+                <div><span>代币符号：</span>${s}</div>
+                <div><span>代币名称：</span>${n}</div>`;
+                Utils.$('tokenDetail').style.display='block';
+                Utils.$('confirmTokenBtn').disabled=false;
+                renderList([selectedToken]);
+            }catch{}
+        })();
+        return;
+    }
+    let fil=COMMON_TOKENS.filter(t=>t.symbol.toLowerCase().includes(q)||t.name.toLowerCase().includes(q));
+    renderList(fil);
+}
+function pickToken(addr){
+    selectedToken=addr?COMMON_TOKENS.find(t=>t.address===addr):COMMON_TOKENS[0];
+    if(!selectedToken)return;
+    Utils.$('tokenDetail').innerHTML=`
+    <div><span>合约地址：</span>${selectedToken.address||'原生代币'}</div>
+    <div><span>代币符号：</span>${selectedToken.symbol}</div>
+    <div><span>代币名称：</span>${selectedToken.name}</div>`;
+    Utils.$('tokenDetail').style.display='block';
+    Utils.$('confirmTokenBtn').disabled=false;
+}
+function confirmTokenSelection(){if(!selectedToken||!selecting)return;TokenState[selecting]={...selectedToken};TokenState.updateUI();closeTokenModal();walletManager.refreshBalances();}
+function showRPCOptions(){let c=Utils.$('rpcConfig');c.style.display=c.style.display==='none'?'block':'none';}
+function setRPC(url){Utils.$('rpc').value=url;walletManager.initProvider();Utils.log(`RPC已切换：${url}`,'info');}
+async function checkRPCLatency(){let s=Date.now();try{await walletManager.provider.getBlockNumber();Utils.$('rpcLatency').textContent=`${Date.now()-s} MS`;}catch{Utils.$('rpcLatency').textContent='超时';}}
+function openModal(){Utils.$('modal').classList.add('show');}
+function closeModal(){Utils.$('modal').classList.remove('show');Utils.$('privateKeys').value='';}
+function closeExportModal(){Utils.$('exportModal').classList.remove('show');}
+async function importKeys(){let v=Utils.$('privateKeys').value;if(!v.trim())return alert('请输入私钥');await walletManager.importKeys(v);closeModal();}
+function copyExportKeys(){navigator.clipboard.writeText(Utils.$('exportKeys').value);Utils.log('已复制','success');}
+document.addEventListener('DOMContentLoaded',()=>{State.init();TokenState.updateUI();walletManager.initProvider();walletManager.render();Utils.log('系统已就绪','info');});
+window.addEventListener('beforeunload',e=>{if(walletManager.wallets.length)e.returnValue='确定离开？私钥将清除';});
+</script>
+</body>
+</html>
